@@ -335,6 +335,7 @@ const panel = el(`
   <header>
     <strong>🤖 ผู้ช่วย AI</strong><span id="ai-target"></span>
     <span class="sp"></span>
+    <button data-act="pin" id="ai-pin" title="ปักไว้ข้างจอ (แอปจะแคบลง) / ลอยทับแอป">📌</button>
     <button data-act="settings" title="ตั้งค่า AI">⚙</button>
     <button data-act="clear" title="เริ่มแชทใหม่">🗑</button>
     <button data-act="close" title="ปิด">✕</button>
@@ -504,12 +505,22 @@ panel.addEventListener("click", e => {
   if (!b) return;
   if (b.dataset.act === "close") toggle(false);
   if (b.dataset.act === "clear") resetChat();
+  if (b.dataset.act === "pin") setDocked(!document.body.classList.contains("ai-docked"));
   if (b.dataset.act === "settings") { const s = $("#ai-settings", panel); if (s.hidden) openSettings(); else s.hidden = true; }
 });
 input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
 $("#ai-form", panel).addEventListener("submit", e => { e.preventDefault(); busy ? abort?.abort() : send(); });
 
+function setDocked(d) {
+  document.body.classList.toggle("ai-docked", d);
+  $("#ai-pin", panel).classList.toggle("on", d);
+  $("#ai-pin", panel).title = d ? "เลิกปัก ให้ลอยทับแอป" : "ปักไว้ข้างจอ (แอปจะแคบลง)";
+  store.set("docked", d);
+}
+setDocked(store.get("docked", false));
+
 function setBusy(b) {
+  $("#ai-btn")?.classList.toggle("busy", b);
   busy = b; sendBtn.textContent = b ? "■" : "➤"; sendBtn.title = b ? "หยุด" : "ส่ง (Enter)";
   panel.classList.toggle("busy", b);
 }
@@ -537,6 +548,34 @@ function offerModelSwitch(e, text, cfg) {
   log.appendChild(box); scrollDown();
 }
 
+// Free tiers allow only a few requests per minute (Gemini: 5). On a 429 that is a per-minute
+// limit, wait as long as the provider asks (or a growing pause) and try again; a daily quota stops.
+async function withRateLimitRetry(fn, signal) {
+  for (let attempt = 1; ; attempt++) {
+    try { return await fn(); }
+    catch (e) {
+      const m = String(e?.message || "");
+      if (!(e instanceof ApiError) || e.status !== 429 || attempt > 6) throw e;
+      if (/per\s*day|PerDay|daily/i.test(m)) throw new ApiError("โควตารายวันหมดแล้ว ลองใหม่พรุ่งนี้ หรือเปลี่ยนผู้ให้บริการ/key (" + m.slice(0, 200) + ")");
+      const hit = m.match(/retry in ([\d.]+)\s*(ms|s)\b/i) || JSON.stringify(e.body || "").match(/"retryDelay"\s*:\s*"([\d.]+)(s)"/);
+      const asked = hit ? Number(hit[1]) * (hit[2].toLowerCase() === "ms" ? 1 : 1000) : 0;
+      const wait = Math.min(65000, Math.max(asked + 500, attempt * 8000));
+      const note = el(`<div class="note warn">⏳ ใช้โควตาต่อนาทีครบแล้ว รอ <b>${Math.ceil(wait / 1000)}</b> วินาทีแล้วทำต่อเอง (ครั้งที่ ${attempt})</div>`);
+      log.appendChild(note); scrollDown();
+      const t0 = Date.now();
+      await new Promise((ok, bad) => {
+        const iv = setInterval(() => {
+          const left = Math.ceil((wait - (Date.now() - t0)) / 1000);
+          $("b", note).textContent = Math.max(0, left);
+          if (left <= 0) { clearInterval(iv); ok(); }
+        }, 250);
+        signal?.addEventListener("abort", () => { clearInterval(iv); bad(new DOMException("aborted", "AbortError")); }, { once: true });
+      });
+      note.remove();
+    }
+  }
+}
+
 const MAX_STEPS = 40;
 async function send() {
   const text = input.value.trim();
@@ -554,7 +593,7 @@ async function send() {
   const before = conv.messages.length - 1;
   try {
     for (let step = 0; step < MAX_STEPS; step++) {
-      const turn = await modelTurn(cfg, conv, systemPrompt(), TOOLS, abort.signal);
+      const turn = await withRateLimitRetry(() => modelTurn(cfg, conv, systemPrompt(), TOOLS, abort.signal), abort.signal);
       if (turn.text) ui.bot(turn.text);
       if (turn.stop === "refusal") { ui.note("โมเดลปฏิเสธคำขอนี้" + (turn.details?.explanation ? `: ${turn.details.explanation}` : ""), "warn"); break; }
       if (!turn.calls.length) {

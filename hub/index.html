@@ -98,12 +98,39 @@
     background: #3a2b10; color: #ffd28a; border: 1px solid #6b4f1a; padding: 6px 14px; border-radius: 99px; font-size: 13px; }
 
 
+  /* ---------- ⋯ menu ---------- */
+  #more-btn { font-size: 18px; line-height: 1; padding: 6px 12px; }
+  #more-menu { position: fixed; top: calc(var(--bar) + 4px); right: 8px; z-index: 30; min-width: 240px; max-width: calc(100vw - 16px);
+    max-height: calc(100vh - var(--bar) - 16px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 6px; box-shadow: 0 12px 32px #0008; font-size: 14px; }
+  #more-menu[hidden] { display: none; }
+  #more-menu button, #more-menu a { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; background: none;
+    border-radius: 8px; text-align: left; text-decoration: none; color: var(--text); font-size: 14px; }
+  #more-menu button:hover, #more-menu a:hover { background: var(--panel-2); }
+  #more-menu .sec { padding: 8px 12px 4px; font-size: 12px; color: var(--muted); }
+  #more-menu .hint { padding: 0 12px 6px; font-size: 12px; color: #80808e; }
+  #more-menu .scales { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 8px 8px; }
+  #more-menu .scales button { width: auto; padding: 7px 11px; border: 1px solid var(--line); background: var(--panel-2); }
+  #more-menu .scales button.on { border-color: var(--accent); background: #3b2f6b; }
+  #more-menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+  .mi-collapsed { display: none !important; }
+  @media (max-width: 1100px) {
+    #bar .collapsible { display: none !important; }
+    .mi-collapsed:not(.off) { display: flex !important; }
+  }
+
   /* ---------- AI panel (ai.js) ---------- */
   :root { --ai-w: 400px; }
   #ai { position: fixed; top: var(--bar); right: 0; bottom: 0; width: var(--ai-w); z-index: 15; display: flex; flex-direction: column;
     background: var(--panel); border-left: 1px solid var(--line); font-size: 14px; }
   #ai[hidden] { display: none; }
-  body.ai-open #stage { right: var(--ai-w); }
+  /* Floating by default (over the app); pinned (📌) docks it and narrows the app instead. */
+  body:not(.ai-docked) #ai { top: calc(var(--bar) + 8px); right: 8px; bottom: 8px; width: min(var(--ai-w), calc(100vw - 16px));
+    border: 1px solid #ffffff1f; border-radius: 14px; box-shadow: 0 16px 48px #000a; overflow: hidden; }
+  body.ai-open.ai-docked #stage { right: var(--ai-w); }
+  #ai-btn.busy::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%;
+    background: #ffb86b; animation: aipulse 1s ease-in-out infinite; vertical-align: middle; }
+  @keyframes aipulse { 50% { opacity: .25; } }
   #ai header { display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
   #ai header .sp { flex: 1; }
   #ai header span#ai-target { color: var(--muted); font-size: 13px; }
@@ -146,9 +173,12 @@
   #ai.busy #ai-send { background: #b8434b; }
   #ai.busy header strong::after { content: " · กำลังทำงาน…"; font-weight: 400; color: var(--muted); font-size: 12px; }
   #ai-btn.active { background: var(--panel-2); color: var(--text); }
+  #ai-pin.on { background: #3b2f6b !important; color: var(--text) !important; }
   @media (max-width: 900px) {
     #ai { width: 100%; }
-    body.ai-open #stage { right: 0; }
+    body.ai-open.ai-docked #stage { right: 0; }
+    #ai-pin { display: none; }
+    body:not(.ai-docked) #ai, #ai { top: var(--bar); right: 0; bottom: 0; width: 100%; border-radius: 0; border: 0; }
   }
 
   /* Installed app: leave room for the status bar / notch. */
@@ -179,10 +209,12 @@
   </button>
   <div id="tabs" role="tablist"></div>
   <div class="right">
-    <button id="install" class="icon-btn" hidden title="ติดตั้ง Craft Hub เป็นแอปบนเครื่อง">⤓ <span class="label">ติดตั้งแอป</span></button>
-    <a id="popout" class="icon-btn" target="_blank" rel="noopener" hidden title="เปิดแอปนี้ในแท็บใหม่ของเบราว์เซอร์">↗ <span class="label">แท็บใหม่</span></a>
-    <button id="reload" class="icon-btn" hidden title="โหลดแอปนี้ใหม่">⟳ <span class="label">โหลดใหม่</span></button>
+    <button id="install" class="icon-btn collapsible" hidden title="ติดตั้ง Craft Hub เป็นแอปบนเครื่อง">⤓ <span class="label">ติดตั้งแอป</span></button>
+    <a id="popout" class="icon-btn collapsible" target="_blank" rel="noopener" hidden title="เปิดแอปนี้ในแท็บใหม่ของเบราว์เซอร์">↗ <span class="label">แท็บใหม่</span></a>
+    <button id="reload" class="icon-btn collapsible" hidden title="โหลดแอปนี้ใหม่">⟳ <span class="label">โหลดใหม่</span></button>
+    <button id="more-btn" class="icon-btn" aria-haspopup="menu" aria-expanded="false" title="เมนูเพิ่มเติม">⋯</button>
   </div>
+  <div id="more-menu" role="menu" hidden></div>
 </div>
 
 <div id="stage">
@@ -346,6 +378,63 @@ addEventListener("keydown", e => {
 });
 
 addEventListener("beforeunload", e => { if (open.size) { e.preventDefault(); e.returnValue = ""; } });
+
+
+// ---------- ⋯ menu: collapsed bar buttons, apps, and the open app's UI size ----------
+const moreBtn = $("#more-btn"), moreMenu = $("#more-menu");
+const SCALES = {
+  filmcraft: { values: ["auto", "75", "100", "125", "150", "175", "200", "250", "300"],
+    label: v => v === "auto" ? "อัตโนมัติ" : `${v}%`,
+    hint: () => `100% = 1 จุดต่อพิกเซลจริงของจอ · “อัตโนมัติ” บนเครื่องนี้ ≈ ${Math.round(devicePixelRatio * 100)}% · เลือกค่าน้อยลงให้เมนูพอดีจอ` },
+  effectcraft: { values: [75, 100, 125, 150, 175, 200], label: v => `${v}%`,
+    hint: () => "100% = ขนาดปกติ · เลือก 75% ให้เมนูพอดีจอ" },
+};
+const frameApi = id => { try { return open.get(id)?.frame.contentWindow?.[id] || null; } catch { return null; } };
+
+async function renderMore() {
+  const parts = [];
+  for (const [src, icon, text] of [["#install", "⤓", "ติดตั้ง Craft Hub เป็นแอป"], ["#popout", "↗", "เปิดแอปนี้ในแท็บใหม่"], ["#reload", "⟳", "โหลดแอปนี้ใหม่"]]) {
+    parts.push(`<button class="mi-collapsed${$(src).hidden ? " off" : ""}" data-proxy="${src}">${icon} ${text}</button>`);
+  }
+  parts.push(`<div class="sec">แอป</div>`);
+  parts.push(`<button data-go="">🏠 หน้าหลัก</button>`);
+  for (const a of APPS) parts.push(`<button data-go="${a.id}"><img src="icons/${a.id}.png" alt="" width="20" height="20" style="border-radius:5px"> ${a.name}${open.has(a.id) ? " ·  เปิดอยู่" : ""}</button>`);
+  const sc = current && SCALES[current];
+  if (sc) {
+    const api = frameApi(current);
+    let cur = null;
+    if (api) { try { cur = await api.execute("prefs.get", { key: "appearance.uiScale" }); } catch {} }
+    parts.push(`<hr><div class="sec">ขนาดหน้าจอ ${byId[current].name}</div>`);
+    if (!api) parts.push(`<div class="hint">รอแอปโหลดเสร็จก่อน</div>`);
+    else {
+      parts.push(`<div class="scales">${sc.values.map(v => `<button data-scale="${v}" class="${String(v) === String(cur) ? "on" : ""}">${sc.label(v)}</button>`).join("")}</div>`);
+      parts.push(`<div class="hint">${sc.hint()}</div>`);
+    }
+  } else if (current) {
+    parts.push(`<hr><div class="hint">${byId[current].name} ปรับขนาดหน้าจอจากเมนูของแอปเอง (View หรือ Preferences)</div>`);
+  }
+  moreMenu.innerHTML = parts.join("");
+}
+function closeMore() { moreMenu.hidden = true; moreBtn.setAttribute("aria-expanded", "false"); }
+moreBtn.addEventListener("click", async e => {
+  e.stopPropagation();
+  if (!moreMenu.hidden) return closeMore();
+  await renderMore(); moreMenu.hidden = false; moreBtn.setAttribute("aria-expanded", "true");
+});
+moreMenu.addEventListener("click", async e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.proxy) { closeMore(); $(b.dataset.proxy).click(); return; }
+  if (b.dataset.go !== undefined) { closeMore(); b.dataset.go ? openApp(b.dataset.go) : show(null); return; }
+  if (b.dataset.scale !== undefined) {
+    const api = frameApi(current); if (!api) return;
+    const value = current === "effectcraft" ? Number(b.dataset.scale) : b.dataset.scale;
+    try { await api.execute("prefs.set", { key: "appearance.uiScale", value }); } catch (err) { alert("ปรับขนาดไม่สำเร็จ: " + (err?.message || err)); }
+    renderMore();
+  }
+});
+document.addEventListener("click", e => { if (!moreMenu.hidden && !moreMenu.contains(e.target)) closeMore(); });
+addEventListener("blur", closeMore); // focus went into an app frame
+addEventListener("keydown", e => { if (e.key === "Escape") closeMore(); });
 
 // For the AI assistant (ai.js): which app is shown, and its frame.
 window.CraftHub = {
