@@ -12,6 +12,18 @@ A personal hub for editing work that runs entirely in the browser. It brings fou
 Open several apps in tabs at the top of the hub and switch between them; each app keeps its state.
 Shortcuts: `Alt+1..4` opens an app, `Alt+0` goes back home. A link like `/#filmcraft` opens that app straight away.
 
+## Installing it as an app (PWA, Android, desktop)
+
+1. Open the site in **Chrome** on Android (or Chrome/Edge on a computer).
+2. Tap **⤓ Install app** at the top right, or go to the ⋮ menu → **Add to Home screen / Install app**.
+3. A Craft Hub icon appears on the home screen and opens full screen like an app. **Long-press the icon** to go straight into PhotoCraft, FilmCraft, LightCraft or EffectCraft.
+
+**Offline use:** on each card, tap **⬇ Use offline** to download that app's files into the device (14–72 MB per app). After that it opens even with no internet.
+When a new app version comes out (you bump `apps.txt`), the old files are dropped and you download the new ones.
+
+> On a phone, landscape works best, or use a tablet with a mouse/keyboard: these apps have desktop-style UIs.
+> Your work (projects, photo library) lives in the device's browser storage. Uninstalling the app or clearing Chrome's data deletes it, so Export/Back Up regularly.
+
 ## How it works
 
 The repository holds only the hub page and the scripts, with no large files.

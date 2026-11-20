@@ -7,7 +7,14 @@
 <meta name="theme-color" content="#121216">
 <meta name="robots" content="noindex, nofollow">
 <title>Craft Hub</title>
-<link rel="icon" href="icons/filmcraft.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Craft Hub">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="icon" href="icons/hub-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
   :root {
     --bg: #121216; --panel: #1b1b21; --panel-2: #23232b; --line: #2e2e38;
@@ -79,9 +86,34 @@
   .note strong { color: var(--text); display: block; margin-bottom: 4px; }
   footer { margin-top: 40px; font-size: 12px; color: #6e6e7a; }
 
+  .offline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); min-height: 28px; }
+  .offline button { border: 1px solid var(--line); background: none; border-radius: 99px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+  .offline button:hover:not(:disabled) { color: var(--text); border-color: #ffffff33; }
+  .offline button:disabled { cursor: default; opacity: .8; }
+  .offline .ok { color: #5fd38d; }
+  .offline progress { flex: 1; height: 6px; accent-color: var(--c); }
+  #install { color: #fff; background: var(--accent); }
+  #install:hover { background: #9d74ff; color: #fff; }
+  #offline-banner, #rotate-hint { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 20;
+    background: #3a2b10; color: #ffd28a; border: 1px solid #6b4f1a; padding: 6px 14px; border-radius: 99px; font-size: 13px; }
+
+  /* Installed app: leave room for the status bar / notch. */
+  @media (display-mode: standalone) {
+    :root { --bar: calc(44px + env(safe-area-inset-top)); }
+    #bar { padding-top: env(safe-area-inset-top); }
+  }
+  @media (max-height: 500px) {
+    :root { --bar: 30px; }
+    #bar .right .label, #home-btn .name { display: none; }
+    .tab img { width: 16px; height: 16px; }
+  }
   @media (max-width: 600px) {
     #bar .right .label { display: none; }
     h1 { font-size: 24px; }
+    #home { padding-top: 24px; }
+    #home-btn .name { display: none; }
+    .tab:not(.active) span:not(.x) { display: none; }   /* inactive tabs: icon only */
+    .tab { padding-left: 10px; }
   }
 </style>
 </head>
@@ -89,10 +121,11 @@
 <div id="bar">
   <button id="home-btn" class="active" title="หน้าหลัก (Alt+0)">
     <span class="dots"><i style="background:var(--photo)"></i><i style="background:var(--film)"></i><i style="background:var(--light)"></i><i style="background:var(--effect)"></i></span>
-    Craft Hub
+    <span class="name">Craft Hub</span>
   </button>
   <div id="tabs" role="tablist"></div>
   <div class="right">
+    <button id="install" class="icon-btn" hidden title="ติดตั้ง Craft Hub เป็นแอปบนเครื่อง">⤓ <span class="label">ติดตั้งแอป</span></button>
     <a id="popout" class="icon-btn" target="_blank" rel="noopener" hidden title="เปิดแอปนี้ในแท็บใหม่ของเบราว์เซอร์">↗ <span class="label">แท็บใหม่</span></a>
     <button id="reload" class="icon-btn" hidden title="โหลดแอปนี้ใหม่">⟳ <span class="label">โหลดใหม่</span></button>
   </div>
@@ -116,6 +149,8 @@
         <div class="note"><strong>ไฟล์อยู่ในเบราว์เซอร์นี้เท่านั้น</strong>โปรเจกต์และสื่อที่ import จะเก็บใน storage ของเบราว์เซอร์ตามโดเมน ล้างข้อมูลเว็บเมื่อไรก็หาย ให้ Save / Export / Back Up ออกมาเก็บเองเสมอ</div>
         <div class="note"><strong>ส่งงานข้ามแอป</strong>Export จากแอปหนึ่ง (ไฟล์จะดาวน์โหลดลงเครื่อง) แล้วลากไฟล์นั้นไปวางในอีกแอปได้เลย</div>
         <div class="note"><strong>หน่วยความจำ</strong>แต่ละแอปเป็น WebAssembly ขนาดใหญ่ เปิดพร้อมกันหลายตัวจะกินแรม ปิดแท็บที่ไม่ใช้ด้วยปุ่ม × ได้</div>
+        <div class="note"><strong>ติดตั้งบน Android</strong>เปิดเว็บนี้ใน Chrome แล้วกด “ติดตั้งแอป” ด้านบน (หรือเมนู ⋮ → เพิ่มลงในหน้าจอหลัก) กดค้างที่ไอคอนเพื่อเข้าแต่ละแอปได้ตรง ๆ</div>
+        <div class="note"><strong>ใช้ออฟไลน์</strong>กด “ใช้ออฟไลน์” ใต้การ์ดเพื่อเก็บแอปไว้ในเครื่อง แอปที่เคยเปิดแล้วจะถูกเก็บเองบางส่วน มือถือแนะนำให้ต่อเมาส์/คีย์บอร์ด หรือใช้แท็บเล็ต</div>
         <div class="note"><strong>ภาพกระตุก/จอดำ</strong>ใช้ Chrome หรือ Edge (มี WebGPU) ได้ดีที่สุด ถ้ามีปัญหาให้กดปุ่ม ⚙ บนการ์ดเพื่อเปิดแบบ WebGL</div>
       </div>
 
@@ -162,6 +197,7 @@ $("#cards").innerHTML = APPS.map((a, i) => `
       <a class="btn" href="${appUrl(a.id)}" target="_blank" rel="noopener" title="เปิดในแท็บใหม่ของเบราว์เซอร์">↗</a>
       <button class="btn" data-open="${a.id}" data-webgl="1" title="เปิดแบบ WebGL (ใช้เมื่อจอดำหรือ WebGPU มีปัญหา)">⚙</button>
     </div>
+    <div class="offline" data-offline="${a.id}"></div>
   </article>`).join("");
 
 document.addEventListener("click", e => {
@@ -229,6 +265,7 @@ function show(id) {
     pop.href = appUrl(id, { webgl: e.webgl });
     document.title = `${byId[id].name} · Craft Hub`;
     e.frame.focus();
+    rotateHint();
     if (location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
   } else {
     document.title = "Craft Hub";
@@ -254,9 +291,134 @@ addEventListener("keydown", e => {
 
 addEventListener("beforeunload", e => { if (open.size) { e.preventDefault(); e.returnValue = ""; } });
 
-// Deep link: /#filmcraft opens that app.
+// Deep link: /#filmcraft opens that app (also used by the installed app's shortcuts).
 const start = location.hash.slice(1);
 if (byId[start]) openApp(start);
+addEventListener("hashchange", () => { const id = location.hash.slice(1); if (byId[id] && id !== current) openApp(id); });
+
+// Phones in portrait: the apps are desktop-style, suggest landscape (once per session).
+function rotateHint() {
+  let seen = false; try { seen = !!sessionStorage.getItem("rotateHint"); } catch {}
+  if (seen || innerWidth >= 700 || innerWidth > innerHeight) return;
+  try { sessionStorage.setItem("rotateHint", "1"); } catch {}
+  const t = document.createElement("div");
+  t.id = "rotate-hint"; t.style.background = "#1f2a44"; t.style.color = "#bcd3ff"; t.style.borderColor = "#34497a";
+  t.textContent = "↻ หมุนจอเป็นแนวนอนจะใช้งานง่ายขึ้น";
+  document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
+}
+
+// ---------- PWA: install + offline ----------
+let installEvt = null;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; $("#install").hidden = false; });
+addEventListener("appinstalled", () => { installEvt = null; $("#install").hidden = true; });
+$("#install").addEventListener("click", async () => {
+  if (!installEvt) return;
+  installEvt.prompt();
+  await installEvt.userChoice.catch(() => {});
+  installEvt = null; $("#install").hidden = true;
+});
+
+const offlineBanner = () => {
+  let b = $("#offline-banner");
+  if (!navigator.onLine) {
+    if (!b) { b = document.createElement("div"); b.id = "offline-banner"; document.body.appendChild(b); }
+    b.textContent = "ออฟไลน์อยู่ · เปิดได้เฉพาะแอปที่เก็บไว้ในเครื่อง";
+  } else if (b) b.remove();
+};
+addEventListener("online", offlineBanner); addEventListener("offline", offlineBanner); offlineBanner();
+
+const swReady = "serviceWorker" in navigator
+  ? navigator.serviceWorker.register("sw.js").catch(e => { console.warn("service worker:", e); return null; })
+  : Promise.resolve(null);
+
+const mb = n => `${Math.round(n / 1048576)} MB`;
+let OFFLINE = null;
+const cacheName = id => `crafthub-${id}-${OFFLINE.apps[id].version}`;
+
+async function offlineState(id) {
+  const info = OFFLINE.apps[id];
+  if (info.ownServiceWorker) {
+    // EffectCraft keeps its own cache (effectcraft-<build>) once its service worker installs.
+    const keys = await caches.keys();
+    return keys.some(k => k.startsWith(`${id}-`)) ? "done" : "none";
+  }
+  if (!(await caches.has(cacheName(id)))) return "none";
+  const cache = await caches.open(cacheName(id));
+  let have = 0;
+  for (const f of info.files) if (await cache.match(new URL(f, location.href).href)) have++;
+  return have === info.files.length ? "done" : have ? "partial" : "none";
+}
+
+async function renderOffline(id) {
+  const el = document.querySelector(`[data-offline="${id}"]`);
+  if (!el || !OFFLINE?.apps[id]) return;
+  const info = OFFLINE.apps[id];
+  const st = await offlineState(id).catch(() => "none");
+  if (st === "done") {
+    el.innerHTML = `<span class="ok">✓ ใช้ออฟไลน์ได้</span><button data-unoffline="${id}" title="ลบไฟล์แอปที่เก็บไว้ (งาน/โปรเจกต์ในแอปไม่ถูกลบ)">ลบ ${mb(info.bytes)}</button>`;
+  } else {
+    el.innerHTML = `<button data-offline-get="${id}">⬇ ใช้ออฟไลน์ (${mb(info.bytes)})</button>${st === "partial" ? "<span>เก็บไว้บางส่วน</span>" : ""}`;
+  }
+}
+
+async function makeOffline(id) {
+  const el = document.querySelector(`[data-offline="${id}"]`);
+  const info = OFFLINE.apps[id];
+  if (navigator.storage?.persist) await navigator.storage.persist().catch(() => {});
+  if (navigator.storage?.estimate) {
+    const { quota = Infinity, usage = 0 } = await navigator.storage.estimate().catch(() => ({}));
+    if (quota - usage < info.bytes * 1.2 && !confirm(`พื้นที่อาจไม่พอ (เหลือประมาณ ${mb(quota - usage)}) ลองต่อไหม?`)) return;
+  }
+  el.innerHTML = `<progress max="${info.files.length}" value="0"></progress><span>0%</span>`;
+  const bar = el.querySelector("progress"), pct = el.querySelector("span");
+  try {
+    if (info.ownServiceWorker) {
+      // Install the app's own service worker: it precaches the whole app by itself.
+      bar.removeAttribute("value"); pct.textContent = "กำลังดาวน์โหลด…";
+      const reg = await navigator.serviceWorker.register(`${id}/sw.js`, { scope: `${id}/` });
+      const sw = reg.installing || reg.waiting || reg.active;
+      if (sw && sw.state !== "activated") await new Promise((ok, bad) => sw.addEventListener("statechange", () => {
+        if (sw.state === "activated") ok(); else if (sw.state === "redundant") bad(new Error("install failed"));
+      }));
+    } else {
+      const cache = await caches.open(cacheName(id));
+      let done = 0;
+      for (const f of info.files) {
+        const url = new URL(f, location.href).href;
+        if (!(await cache.match(url))) {
+          const res = await fetch(url, { cache: "no-cache" });
+          if (!res.ok) throw new Error(`${f}: HTTP ${res.status}`);
+          await cache.put(url, res);
+        }
+        bar.value = ++done; pct.textContent = `${Math.round(100 * done / info.files.length)}%`;
+      }
+    }
+  } catch (e) {
+    alert(`เก็บ ${byId[id].name} ไว้ออฟไลน์ไม่สำเร็จ: ${e.message}`);
+  }
+  renderOffline(id);
+}
+
+async function removeOffline(id) {
+  if (!confirm(`ลบไฟล์ ${byId[id].name} ที่เก็บไว้ออฟไลน์? (งานในแอปไม่ถูกลบ)`)) return;
+  if (OFFLINE.apps[id].ownServiceWorker) {
+    for (const k of await caches.keys()) if (k.startsWith(`${id}-`)) await caches.delete(k);
+  } else await caches.delete(cacheName(id));
+  renderOffline(id);
+}
+
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-offline-get]"); if (g) { g.disabled = true; makeOffline(g.dataset.offlineGet); }
+  const r = e.target.closest("[data-unoffline]"); if (r) removeOffline(r.dataset.unoffline);
+});
+
+if ("caches" in window) {
+  swReady.then(() => fetch("offline.json")).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j) return;
+    OFFLINE = j;
+    APPS.forEach(a => renderOffline(a.id));
+  }).catch(() => {});
+}
 </script>
 </body>
 </html>

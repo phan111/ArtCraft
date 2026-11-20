@@ -59,6 +59,31 @@ versions_json="${versions_json%,}}"
 cp -r "$ROOT/hub/." "$DIST/"
 echo "$versions_json" > "$DIST/versions.json"
 
+# offline.json: each app's files, for the hub's "use offline" button (docs and licences left out:
+# they stay online-only). The app's folder URL ("photocraft/") stands for its index.html.
+python3 -I - "$DIST" "$versions_json" <<'PY'
+import json, os, sys
+dist, versions = sys.argv[1], json.loads(sys.argv[2])
+skip = {"README.md", "HOSTING.md", "NOTICE", "ATTRIBUTION.md", "LICENSE-MIT", "LICENSE-APACHE"}
+apps = {}
+for app in versions:
+    files, size = [f"{app}/"], 0
+    for d, _, names in os.walk(os.path.join(dist, app)):
+        for n in sorted(names):
+            if n in skip or n.startswith("OFL-") or n == "sw.js":
+                continue
+            p = os.path.join(d, n)
+            files.append(os.path.relpath(p, dist).replace(os.sep, "/"))
+            size += os.path.getsize(p)
+    apps[app] = {"version": versions[app], "bytes": size, "files": sorted(files),
+                 "ownServiceWorker": os.path.exists(os.path.join(dist, app, "sw.js"))}
+json.dump({"apps": apps}, open(os.path.join(dist, "offline.json"), "w"), indent=1)
+PY
+
+# Fill in the service worker: BUILD changes whenever the hub or any app version changes.
+build="$(cat "$DIST/versions.json" "$ROOT"/hub/*.html "$ROOT"/hub/*.js "$ROOT"/hub/*.webmanifest | sha256sum | cut -c1-16)"
+sed -i -e "s/__BUILD__/$build/" -e "s|__VERSIONS__|$versions_json|" "$DIST/sw.js"
+
 echo "Built $DIST:"
 du -sh "$DIST"/*/ | sed 's#'"$DIST"'/##'
 # Report big files: Netlify's CDN handles them, but keep an eye on them.

@@ -1,0 +1,30 @@
+{
+  "name": "Craft Hub",
+  "short_name": "Craft Hub",
+  "description": "ศูนย์รวม PhotoCraft, FilmCraft, LightCraft และ EffectCraft ทำงานในเครื่อง",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "lang": "th",
+  "background_color": "#121216",
+  "theme_color": "#121216",
+  "categories": ["photo", "productivity", "graphics"],
+  "icons": [
+    { "src": "icons/hub-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/hub-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/hub-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "PhotoCraft", "short_name": "Photo", "description": "แต่งภาพ / PSD", "url": "./#photocraft",
+      "icons": [{ "src": "icons/photocraft.png", "sizes": "256x256", "type": "image/png" }] },
+    { "name": "FilmCraft", "short_name": "Film", "description": "ตัดต่อวิดีโอ", "url": "./#filmcraft",
+      "icons": [{ "src": "icons/filmcraft.png", "sizes": "256x256", "type": "image/png" }] },
+    { "name": "LightCraft", "short_name": "Light", "description": "คลังภาพ / RAW", "url": "./#lightcraft",
+      "icons": [{ "src": "icons/lightcraft.png", "sizes": "256x256", "type": "image/png" }] },
+    { "name": "EffectCraft", "short_name": "Effect", "description": "โมชันกราฟิก / VFX", "url": "./#effectcraft",
+      "icons": [{ "src": "icons/effectcraft.png", "sizes": "256x256", "type": "image/png" }] }
+  ]
+}
