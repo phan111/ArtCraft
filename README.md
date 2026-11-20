@@ -34,7 +34,8 @@ Claude Desktop / Claude Code ใช้แพ็กเกจ Claude ที่ม�
 Claude ⇄ (MCP stdio) ⇄ craft-hub-mcp.mjs ⇄ (HTTP 127.0.0.1:47821) ⇄ หน้า Craft Hub ในเบราว์เซอร์
 ```
 
-ตั้งค่า: ดาวน์โหลดไฟล์จากแผง AI (โหมด Claude Desktop) แล้วเพิ่มใน Claude Desktop config หรือ
+ใช้ได้กับ Claude Desktop, Claude Code, Google Antigravity (`agy`, ไฟล์ `~/.gemini/config/mcp_config.json`) และโปรแกรมอื่นที่รองรับ MCP แบบ stdio
+ตั้งค่า: เปิดแผง AI โหมด “AI บนคอม (MCP)” เลือกโปรแกรม แล้วคัดลอก config ที่ฮับสร้างให้ หรือสำหรับ Claude Code:
 
 ```bash
 claude mcp add craft-hub -- node /path/to/craft-hub-mcp.mjs --origin https://<your-hub>.netlify.app

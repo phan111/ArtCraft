@@ -347,7 +347,7 @@ const panel = el(`
   </header>
   <nav id="ai-mode" role="tablist">
     <button data-mode="api" role="tab">💬 AI ในเบราว์เซอร์</button>
-    <button data-mode="desktop" role="tab">🖥 Claude Desktop</button>
+    <button data-mode="desktop" role="tab">🖥 AI บนคอม (MCP)</button>
   </nav>
   <section id="ai-desktop" hidden>
     <div id="ai-dstatus" class="dstatus"></div>
@@ -356,13 +356,18 @@ const panel = el(`
       <ol>
         <li>ติดตั้ง <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> (เวอร์ชัน 18 ขึ้นไป)</li>
         <li>ดาวน์โหลดตัวเชื่อม <a id="ai-dl" href="bridge/craft-hub-mcp.mjs" download="craft-hub-mcp.mjs">craft-hub-mcp.mjs</a> เก็บไว้ในโฟลเดอร์ที่จำได้</li>
-        <li><b>Claude Desktop:</b> Settings → Developer → Edit Config แล้วใส่ใน <code>claude_desktop_config.json</code> (แก้ path ให้ตรงไฟล์ที่ดาวน์โหลด):
+        <li>เลือกโปรแกรม AI ที่ใช้
+          <select id="ai-dclient">
+            <option value="claude-desktop">Claude Desktop</option>
+            <option value="claude-code">Claude Code</option>
+            <option value="antigravity">Google Antigravity (agy)</option>
+            <option value="other">โปรแกรมอื่นที่รองรับ MCP</option>
+          </select>
+          <div id="ai-dclient-how"></div>
           <pre id="ai-dcfg"></pre><button type="button" class="chip" data-copy="ai-dcfg">คัดลอก</button>
-          แล้วปิด-เปิด Claude Desktop ใหม่ · บน Windows ใน JSON ต้องใช้ <code>\\</code> เช่น <code>C:\\Users\\me\\craft-hub-mcp.mjs</code></li>
-        <li><b>หรือ Claude Code:</b> รันในเทอร์มินัล
-          <pre id="ai-dcli"></pre><button type="button" class="chip" data-copy="ai-dcli">คัดลอก</button></li>
+          <div id="ai-dclient-after" class="hint"></div></li>
         <li>เปิดหน้านี้ค้างไว้ (Chrome/Edge) ถ้าเบราว์เซอร์ถามสิทธิ์เข้าถึงอุปกรณ์ในเครือข่าย/เครื่องนี้ ให้กดอนุญาต</li>
-        <li>สั่งงานใน Claude เช่น “ใช้ craft-hub เปิด FilmCraft แล้วใส่ไตเติล Hello 3 วินาทีแรก”</li>
+        <li>สั่งงานในโปรแกรม AI เช่น “ใช้ craft-hub เปิด FilmCraft แล้วใส่ไตเติล Hello 3 วินาทีแรก”</li>
       </ol>
       <label class="port">พอร์ต <input id="ai-dport" inputmode="numeric" size="6"></label>
     </details>
@@ -703,16 +708,32 @@ function renderDesktop() {
   const st = $("#ai-dstatus", panel);
   st.className = "dstatus " + (bridge.connected ? "ok" : "off");
   st.innerHTML = bridge.connected
-    ? `🟢 เชื่อมกับ Claude แล้ว · สั่งงานในแอป Claude ได้เลย${bridge.calls ? ` · ทำไปแล้ว ${bridge.calls} คำสั่ง` : ""}`
+    ? `🟢 เชื่อมกับตัวเชื่อมแล้ว · สั่งงานในโปรแกรม AI ได้เลย${bridge.calls ? ` · ทำไปแล้ว ${bridge.calls} คำสั่ง` : ""}`
     : `⚪ ยังไม่เชื่อมต่อตัวเชื่อม (127.0.0.1:${port})${bridge.lastError ? `<br><small>${esc(bridge.lastError)}</small>` : ""}`;
   const setup = $("#ai-dsetup", panel);
   if (!setup.dataset.touched) setup.open = !bridge.connected;
-  const cfg = { mcpServers: { "craft-hub": { command: "node", args: ["/path/to/craft-hub-mcp.mjs", "--origin", origin, ...(port !== 47821 ? ["--port", String(port)] : [])] } } };
-  $("#ai-dcfg", panel).textContent = JSON.stringify(cfg, null, 2);
-  $("#ai-dcli", panel).textContent = `claude mcp add craft-hub -- node /path/to/craft-hub-mcp.mjs --origin ${origin}${port !== 47821 ? ` --port ${port}` : ""}`;
+  const argv = ["/path/to/craft-hub-mcp.mjs", "--origin", origin, ...(port !== 47821 ? ["--port", String(port)] : [])];
+  const client = store.get("bridgeClient", "claude-desktop");
+  $("#ai-dclient", panel).value = client;
+  const json = extra => JSON.stringify({ mcpServers: { "craft-hub": { command: "node", args: argv, ...extra } } }, null, 2);
+  const win = " · บน Windows ใน JSON ต้องใช้ <code>\\\\</code> เช่น <code>C:\\\\Users\\\\me\\\\craft-hub-mcp.mjs</code>";
+  const C = {
+    "claude-desktop": { how: "Settings → Developer → Edit Config แล้วใส่ใน <code>claude_desktop_config.json</code> (แก้ path ให้ตรงไฟล์ที่ดาวน์โหลด):",
+      cfg: json({}), after: "แล้วปิด-เปิด Claude Desktop ใหม่" + win },
+    "claude-code": { how: "รันในเทอร์มินัล (แก้ path ให้ตรงไฟล์ที่ดาวน์โหลด):",
+      cfg: `claude mcp add craft-hub -- node ${argv.join(" ")}`, after: "แล้วเริ่ม Claude Code ใหม่ พิมพ์ <code>/mcp</code> เพื่อดูว่า craft-hub เชื่อมแล้ว" },
+    "antigravity": { how: "IDE: แผง Agent → เมนู ⋯ → MCP Servers → Manage MCP Servers → <b>View raw config</b> · CLI (<code>agy</code>): แก้ไฟล์ <code>~/.gemini/config/mcp_config.json</code> หรือพิมพ์ <code>/mcp</code> · แล้วใส่ (รวมกับของเดิมใน <code>mcpServers</code>):",
+      cfg: json({ timeoutSeconds: 300 }), after: "บันทึกแล้วกด Refresh ในหน้า MCP Servers (หรือเปิด agy ใหม่) · Antigravity ใช้ Gemini ผ่านบัญชี Google" + win },
+    "other": { how: "โปรแกรมที่รองรับ MCP แบบ stdio (เช่น Cursor, VS Code, LM Studio) ส่วนใหญ่ใช้รูปแบบนี้:",
+      cfg: json({}), after: "ชื่อไฟล์/เมนูต่างกันไปตามโปรแกรม ดูหัวข้อ MCP servers ในคู่มือของโปรแกรมนั้น" + win },
+  }[client];
+  $("#ai-dclient-how", panel).innerHTML = C.how;
+  $("#ai-dcfg", panel).textContent = C.cfg;
+  $("#ai-dclient-after", panel).innerHTML = C.after;
   $("#ai-dport", panel).value = port;
   $("#ai-btn")?.classList.toggle("linked", bridge.connected);
 }
+$("#ai-dclient", panel).addEventListener("change", e => { store.set("bridgeClient", e.target.value); renderDesktop(); });
 $("#ai-dsetup", panel).addEventListener("toggle", e => { e.target.dataset.touched = "1"; });
 $("#ai-dport", panel).addEventListener("change", e => { store.set("bridgePort", Number(e.target.value) || 47821); bridge.lastError = ""; renderDesktop(); });
 panel.addEventListener("click", e => {
@@ -753,7 +774,7 @@ async function startBridge() {
       failures++;
       const was = bridge.connected;
       bridge.connected = false;
-      bridge.lastError = /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? "เปิด Claude Desktop / Claude Code ที่ตั้งค่า craft-hub ไว้ แล้วหน้านี้จะเชื่อมเอง" : e.message;
+      bridge.lastError = /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? "เปิดโปรแกรม AI (Claude Desktop, Claude Code, Antigravity…) ที่ตั้งค่า craft-hub ไว้ แล้วหน้านี้จะเชื่อมเอง" : e.message;
       if (was || failures === 1) renderDesktop();
       await new Promise(r => setTimeout(r, Math.min(15000, 2000 * failures)));
     }

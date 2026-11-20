@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Craft Hub MCP bridge — lets Claude Desktop / Claude Code (or any MCP client) drive the apps
+// Craft Hub MCP bridge — lets Claude Desktop / Claude Code / Google Antigravity (or any MCP client) drive the apps
 // open in Craft Hub in your browser.
 //
 //   MCP client ⇄ (stdio) ⇄ this script ⇄ (HTTP on 127.0.0.1) ⇄ Craft Hub page in the browser
@@ -131,7 +131,7 @@ async function callPage(name, input) {
   if (!(await waitForPage(15000))) {
     return { isError: true, content: [{ type: "text", text:
       `Craft Hub isn't connected. Ask the user to open the hub (${ORIGINS[0] || "their Craft Hub site"}) in the browser on this computer, ` +
-      `open the 🤖 AI panel, choose “Claude Desktop”, and allow access to local devices if the browser asks.` }] };
+      `open the 🤖 AI panel, choose “AI บนคอม (MCP)”, and allow access to local devices if the browser asks.` }] };
   }
   const id = randomUUID();
   const result = await new Promise(resolve => {
