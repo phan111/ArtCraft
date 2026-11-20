@@ -91,7 +91,7 @@ async function modelTurn(cfg, conv, system, tools, signal) {
     return { text, calls, stop: j.stop_reason, usage: j.usage, details: j.stop_details };
   }
   const body = { model: cfg.model, messages: [{ role: "system", content: system }, ...conv.messages],
-    tools: tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })) };
+    tools: tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: portableSchema(t.parameters) } })) };
   const headers = { "content-type": "application/json" };
   if (cfg.key) headers.authorization = `Bearer ${cfg.key}`;
   if (cfg.provider === "openrouter") headers["X-Title"] = "Craft Hub";
@@ -106,6 +106,35 @@ async function modelTurn(cfg, conv, system, tools, signal) {
   conv.messages.push(keep);
   const text = typeof msg.content === "string" ? msg.content.trim() : "";
   return { text, calls, stop: j.choices?.[0]?.finish_reason, usage: j.usage };
+}
+
+// Some OpenAI-compatible backends (Google Gemini in particular) reject `additionalProperties` and
+// object fields with no declared properties. Send free-form objects as JSON text instead; the
+// tools parse it back (see objParam).
+function portableSchema(schema) {
+  const out = { type: schema.type };
+  if (schema.properties) {
+    out.properties = {};
+    for (const [k, v] of Object.entries(schema.properties)) {
+      if (v.type === "object" && !v.properties) {
+        out.properties[k] = { type: "string", description: 'JSON object text, e.g. {"rating":4}. Use {} for none.' };
+      } else {
+        const c = { ...v }; delete c.additionalProperties; out.properties[k] = c;
+      }
+    }
+  }
+  if (schema.required) out.required = schema.required;
+  return out;
+}
+function objParam(v) {
+  if (v == null || v === "") return {};
+  if (typeof v === "string") {
+    let o; try { o = JSON.parse(v); } catch { throw new Error(`params must be a JSON object, got: ${v.slice(0, 200)}`); }
+    if (!o || typeof o !== "object" || Array.isArray(o)) throw new Error("params must be a JSON object");
+    return o;
+  }
+  if (typeof v === "object" && !Array.isArray(v)) return v;
+  throw new Error("params must be a JSON object");
 }
 
 // Append tool results ({id, text, image?, error?}) in the provider's format.
@@ -232,7 +261,7 @@ async function runTool(name, input, ui) {
       const a = needApp();
       const api = await appApi(a, 5000).catch(() => null);
       if (!api || CAPS[a].api === "none") throw new Error(`${CAPS[a].name} ไม่มี API สั่งงาน`);
-      const params = input.params && typeof input.params === "object" ? input.params : {};
+      const params = objParam(input.params);
       let v;
       if (CAPS[a].api === "full") v = await api.execute(input.command, params);
       else { v = await api.command(input.command, JSON.stringify(params)); if (typeof v === "string") { try { v = JSON.parse(v); } catch {} } }
@@ -242,7 +271,7 @@ async function runTool(name, input, ui) {
     case "ui_request": {
       const a = needApp();
       if (CAPS[a].api !== "full") throw new Error(`${CAPS[a].name} ไม่มี ui_request`);
-      return { text: clip(asText(await (await appApi(a)).request(input.method, input.params || {})), 12000) };
+      return { text: clip(asText(await (await appApi(a)).request(input.method, objParam(input.params))), 12000) };
     }
     case "screenshot": {
       const a = needApp();
