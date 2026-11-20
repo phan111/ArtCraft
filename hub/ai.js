@@ -17,7 +17,7 @@ const PROVIDERS = {
   openai: { label: "OpenAI (GPT)", kind: "openai", base: "https://api.openai.com/v1", model: "gpt-5",
     keyUrl: "https://platform.openai.com/api-keys" },
   gemini: { label: "Google Gemini", kind: "openai", base: "https://generativelanguage.googleapis.com/v1beta/openai",
-    model: "gemini-2.5-flash", keyUrl: "https://aistudio.google.com/apikey" },
+    model: "gemini-3.8-flash", keyUrl: "https://aistudio.google.com/apikey" },
   openrouter: { label: "OpenRouter (หลายโมเดล)", kind: "openai", base: "https://openrouter.ai/api/v1",
     model: "openrouter/auto", keyUrl: "https://openrouter.ai/keys" },
   custom: { label: "กำหนดเอง (Ollama, LM Studio, อื่น ๆ)", kind: "openai", base: "http://localhost:11434/v1", model: "", keyOptional: true },
@@ -396,7 +396,7 @@ function toggle(show = panel.hidden) {
   panel.hidden = !show;
   document.body.classList.toggle("ai-open", show);
   $("#ai-btn")?.classList.toggle("active", show);
-  if (show) { renderEmpty(); updateTarget(); if (!config().key && !config().keyOptional) openSettings(); else input.focus(); }
+  if (show) { setTimeout(avoidCornerBadge, 50); renderEmpty(); updateTarget(); if (!config().key && !config().keyOptional) openSettings(); else input.focus(); }
 }
 
 // settings
@@ -510,6 +510,29 @@ function setBusy(b) {
   panel.classList.toggle("busy", b);
 }
 
+// A model the provider has retired or doesn't have: offer the model its error suggests (Gemini
+// names one), or the model list.
+function modelGone(e) {
+  const m = String(e?.message || "");
+  return e instanceof ApiError && (e.status === 404 || e.status === 400) &&
+    /model/i.test(m) && /(not found|no longer available|not available|does not exist|unknown model|not supported|deprecated|invalid model)/i.test(m);
+}
+function offerModelSwitch(e, text, cfg) {
+  const sug = String(e.message).match(/use\s+(?:models\/)?([a-z0-9][\w.\-:\/]*[a-z0-9])/i)?.[1];
+  const box = el(`<div class="note warn fix">โมเดล <code>${esc(cfg.model)}</code> ใช้ไม่ได้แล้ว
+    ${sug ? `<button class="chip" data-use="${esc(sug)}">ใช้ ${esc(sug)} แล้วส่งใหม่</button>` : ""}
+    <button class="chip" data-pick>เลือกโมเดลอื่น</button></div>`);
+  box.addEventListener("click", ev => {
+    const b = ev.target.closest("button"); if (!b) return;
+    ev.stopPropagation(); // not a suggestion chip: don't let the panel's chip handler copy its text
+    if (b.dataset.use) {
+      const per = store.get("p." + cfg.provider, {}); per.model = b.dataset.use; store.set("p." + cfg.provider, per);
+      box.remove(); input.value = text; send();
+    } else { openSettings(); loadModels(); }
+  });
+  log.appendChild(box); scrollDown();
+}
+
 const MAX_STEPS = 40;
 async function send() {
   const text = input.value.trim();
@@ -557,7 +580,8 @@ async function send() {
       ui.note("เกิดข้อผิดพลาด: " + (e.message || e), "warn");
       // Drop this exchange so the history stays well-formed (no tool call left without its result).
       conv.messages.length = before;
-      ui.note("ล้างคำขอนี้ออกจากบทสนทนาแล้ว ลองส่งใหม่ได้");
+      if (modelGone(e)) offerModelSwitch(e, text, cfg);
+      else ui.note("ล้างคำขอนี้ออกจากบทสนทนาแล้ว ลองส่งใหม่ได้");
     }
   } finally { setBusy(false); abort = null; input.focus(); }
 }
@@ -568,3 +592,21 @@ $("#bar .right").prepend(btn);
 btn.addEventListener("click", () => toggle());
 addEventListener("keydown", e => { if (e.altKey && (e.key === "a" || e.key === "A")) { e.preventDefault(); toggle(); } });
 HUB.onChange(updateTarget);
+
+// Hosts can add a fixed badge in the bottom-right corner (Netlify's "Powered by Netlify"), which
+// would sit on the send button: lift the input row above any such overlay.
+function avoidCornerBadge() {
+  const x = innerWidth - 30, ys = [innerHeight - 20, innerHeight - 40];
+  let lift = 0;
+  for (const y of ys) {
+    for (let n = document.elementFromPoint(x, y); n && n !== document.body; n = n.parentElement) {
+      if (panel.contains(n)) break;
+      const st = getComputedStyle(n);
+      if (st.position === "fixed" && !n.closest("#stage, #bar")) { lift = Math.max(lift, innerHeight - n.getBoundingClientRect().top + 8); break; }
+    }
+  }
+  panel.style.setProperty("--lift", lift ? `${Math.min(lift, 120)}px` : "0px");
+}
+new MutationObserver(() => { if (!panel.hidden) avoidCornerBadge(); }).observe(document.body, { childList: true });
+addEventListener("resize", () => { if (!panel.hidden) avoidCornerBadge(); });
+

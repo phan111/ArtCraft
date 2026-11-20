@@ -139,7 +139,8 @@
   #ai .empty p { margin: 0; }
   #ai .chip { color: var(--text); text-align: left; }
   #ai .chip:hover { border-color: #ffffff33; }
-  #ai-form { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); }
+  #ai-form { display: flex; gap: 6px; padding: 10px 10px calc(10px + var(--lift, 0px)); border-top: 1px solid var(--line); }
+  #ai .note.fix { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; }
   #ai-form textarea { flex: 1; resize: none; max-height: 140px; }
   #ai-send { width: 44px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-size: 16px; }
   #ai.busy #ai-send { background: #b8434b; }
