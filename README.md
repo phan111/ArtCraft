@@ -24,6 +24,26 @@ When a new app version comes out (you bump `apps.txt`), the old files are droppe
 > On a phone, landscape works best, or use a tablet with a mouse/keyboard: these apps have desktop-style UIs.
 > Your work (projects, photo library) lives in the device's browser storage. Uninstalling the app or clearing Chrome's data deletes it, so Export/Back Up regularly.
 
+## ผู้ช่วย AI (ให้ AI ช่วยตัดต่อ)
+
+กดปุ่ม **🤖 AI** มุมขวาบน (หรือ `Alt+A`) แล้วพิมพ์สั่งงาน เช่น “เปิดโปรเจกต์ตัวอย่าง แล้วใส่ไตเติล Hello ช่วง 3 วิแรก”
+AI จะค้นหาคำสั่งของแอป สั่งงาน แล้วถ่ายภาพหน้าจอดูผลเอง ทุกขั้นที่ทำแสดงในแชท กด ■ เพื่อหยุดได้ตลอด
+
+| แอป | AI ทำอะไรได้ |
+|---|---|
+| FilmCraft | ครบ: 700+ คำสั่ง, คลิก UI, ดูภาพหน้าจอ |
+| EffectCraft | ครบ: 700+ คำสั่ง, คลิก UI, ดูภาพหน้าจอ, render เฟรม |
+| LightCraft | สั่งงานได้ 388 คำสั่ง (รายชื่ออยู่ใน `hub/ai/lightcraft-commands.json`) แต่มองไม่เห็นหน้าจอ |
+| PhotoCraft | ยังไม่ได้ (เวอร์ชันเว็บไม่มี API ให้สั่ง) |
+
+**ผู้ให้บริการที่เลือกได้** (⚙ ในแผง AI): Claude, OpenAI, Google Gemini, OpenRouter, หรือ “กำหนดเอง” สำหรับ API แบบ OpenAI
+เช่น Ollama / LM Studio ในเครื่อง (`http://localhost:11434/v1`, ต้องตั้ง `OLLAMA_ORIGINS` ให้รับเว็บนี้)
+โมเดลต้องรองรับ tool calling และควรดูรูปได้ งานซับซ้อนใช้โมเดลระดับบนจะทำได้ดีกว่ามาก
+
+- API key เก็บใน localStorage ของเบราว์เซอร์เครื่องนั้น ส่งตรงไปผู้ให้บริการเท่านั้น ค่าใช้จ่ายคิดตามบัญชีของคุณ (แนะนำตั้งวงเงินไว้)
+- AI อ่านไฟล์ในเครื่องไม่ได้: ลากฟุตเทจ/รูปเข้าแอปเองก่อน แล้วค่อยสั่ง
+- อัปเดต LightCraft แล้ว ให้สร้างรายชื่อคำสั่งใหม่: `python3 tools/lightcraft_commands.py <lightcraft>/crates/engine/src hub/ai/lightcraft-commands.json`
+
 ## How it works
 
 The repository holds only the hub page and the scripts, with no large files.
