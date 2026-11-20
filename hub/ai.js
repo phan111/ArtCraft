@@ -310,8 +310,8 @@ const panel = el(`
     <label>ผู้ให้บริการ<select id="ai-provider">${Object.entries(PROVIDERS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("")}</select></label>
     <label id="ai-base-row">URL ของ API<input id="ai-base" placeholder="http://localhost:11434/v1" autocomplete="off"></label>
     <label>API key <a id="ai-keylink" target="_blank" rel="noopener">สร้าง key</a><input id="ai-key" type="password" autocomplete="off" placeholder="วาง API key ที่นี่"></label>
-    <label>โมเดล<span class="row"><input id="ai-model" list="ai-models" autocomplete="off"><button id="ai-load" type="button">โหลดรายชื่อ</button></span></label>
-    <datalist id="ai-models"></datalist>
+    <label>โมเดล<span class="row"><select id="ai-model-select"></select><button id="ai-load" type="button" title="โหลดรายชื่อโมเดลจากผู้ให้บริการ">⟳</button></span></label>
+    <label id="ai-model-row" hidden>ชื่อโมเดล<input id="ai-model" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="เช่น llama3.2-vision"></label>
     <p class="hint">key เก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น ส่งตรงไปยังผู้ให้บริการที่เลือก ค่าใช้จ่ายคิดตามการใช้งานของบัญชีนั้น ใช้ key ที่ตั้งวงเงินไว้จะปลอดภัยกว่า</p>
     <p class="hint" id="ai-status"></p>
     <div class="row"><button id="ai-save" class="primary" type="button">บันทึก</button><button id="ai-forget" type="button">ลบ key</button></div>
@@ -377,33 +377,80 @@ function openSettings() {
   $("#ai-provider", panel).value = provider;
   fillProvider(provider);
 }
+// Models that can't chat with tools (embeddings, speech, image/video generation…) are left out.
+const NOT_CHAT = /embed|tts|audio|speech|transcri|whisper|dall-e|imagen|veo|-image|image-|moderation|realtime|aqa|search|robotics|computer-use|lyria|babbage|davinci/i;
+const CUSTOM = "__custom__";
+const natural = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+function setModelOptions(provider, ids, current) {
+  const p = PROVIDERS[provider];
+  const chat = [...new Set(ids)].filter(id => !NOT_CHAT.test(id));
+  // Suggested models first (in their order), then the rest newest-looking first.
+  const preferred = (p.models || []).filter(m => !ids.length || chat.includes(m));
+  const rest = chat.filter(m => !preferred.includes(m)).sort((a, b) => natural.compare(b, a));
+  const sel = $("#ai-model-select", panel);
+  const opt = m => `<option value="${esc(m)}">${esc(m)}</option>`;
+  const all = [...preferred, ...rest];
+  const known = !current || all.includes(current);
+  sel.innerHTML =
+    (preferred.length && rest.length ? `<optgroup label="แนะนำ">${preferred.map(opt).join("")}</optgroup><optgroup label="ทั้งหมด">${rest.map(opt).join("")}</optgroup>` : all.map(opt).join("")) +
+    (!known ? `<optgroup label="ที่ตั้งไว้">${opt(current)}</optgroup>` : "") +
+    `<option value="${CUSTOM}">✎ พิมพ์ชื่อโมเดลเอง…</option>`;
+  sel.value = current || all[0] || CUSTOM;
+  syncCustom();
+  return chat.length;
+}
+function syncCustom() {
+  const custom = $("#ai-model-select", panel).value === CUSTOM;
+  $("#ai-model-row", panel).hidden = !custom;
+  if (!custom) $("#ai-model", panel).value = $("#ai-model-select", panel).value;
+}
+$("#ai-model-select", panel).addEventListener("change", () => {
+  syncCustom();
+  if ($("#ai-model-select", panel).value === CUSTOM) { $("#ai-model", panel).value = ""; $("#ai-model", panel).focus(); }
+});
+
 function fillProvider(provider) {
   const p = PROVIDERS[provider], per = store.get("p." + provider, {});
   $("#ai-base-row", panel).hidden = provider !== "custom";
   $("#ai-base", panel).value = per.base || p.base;
   $("#ai-key", panel).value = per.key || "";
   $("#ai-key", panel).placeholder = p.keyOptional ? "ไม่บังคับ" : "วาง API key ที่นี่";
-  $("#ai-model", panel).value = per.model || p.model;
   const link = $("#ai-keylink", panel); link.hidden = !p.keyUrl; if (p.keyUrl) link.href = p.keyUrl;
-  $("#ai-models", panel).innerHTML = (p.models || []).map(m => `<option value="${esc(m)}">`).join("");
   $("#ai-status", panel).textContent = "";
+  const current = per.model || p.model;
+  setModelOptions(provider, store.get("models." + provider, p.models || []), current);
+  $("#ai-model", panel).value = current;
+  if (per.key || p.keyOptional) loadModels(true);
 }
 function readSettings() {
   const provider = $("#ai-provider", panel).value;
+  const sel = $("#ai-model-select", panel).value;
   return { provider, per: { base: provider === "custom" ? $("#ai-base", panel).value.trim() : "",
-    key: $("#ai-key", panel).value.trim(), model: $("#ai-model", panel).value.trim() } };
+    key: $("#ai-key", panel).value.trim(), model: (sel === CUSTOM ? $("#ai-model", panel).value : sel).trim() } };
 }
-$("#ai-provider", panel).addEventListener("change", e => fillProvider(e.target.value));
-$("#ai-load", panel).addEventListener("click", async () => {
+
+let loadSeq = 0;
+async function loadModels(quiet = false) {
   const { provider, per } = readSettings(), p = PROVIDERS[provider];
-  const st = $("#ai-status", panel); st.textContent = "กำลังโหลดรายชื่อโมเดล…";
+  if (!per.key && !p.keyOptional) { if (!quiet) $("#ai-status", panel).textContent = "ใส่ API key ก่อน แล้วรายชื่อโมเดลจะโหลดเอง"; return; }
+  const st = $("#ai-status", panel), seq = ++loadSeq;
+  st.textContent = "กำลังโหลดรายชื่อโมเดล…";
   try {
     const ids = await listModels({ kind: p.kind, provider, base: (per.base || p.base).replace(/\/+$/, ""), key: per.key });
-    $("#ai-models", panel).innerHTML = ids.map(m => `<option value="${esc(m)}">`).join("");
-    st.textContent = `พบ ${ids.length} โมเดล · คลิกช่องโมเดลเพื่อเลือก (ต้องรองรับ tool calling; ถ้าดูรูปได้จะตรวจผลจากภาพหน้าจอได้)`;
-    if (ids.length && !ids.includes($("#ai-model", panel).value)) $("#ai-model", panel).value = ids[0];
-  } catch (e) { st.textContent = "โหลดไม่สำเร็จ: " + e.message; }
-});
+    if (seq !== loadSeq || $("#ai-provider", panel).value !== provider) return;
+    store.set("models." + provider, ids);
+    // Keep what the user is doing: a typed custom name stays typed, a picked model stays picked.
+    const wasCustom = $("#ai-model-select", panel).value === CUSTOM, typed = $("#ai-model", panel).value;
+    const n = setModelOptions(provider, ids, wasCustom ? null : per.model);
+    if (wasCustom) { $("#ai-model-select", panel).value = CUSTOM; syncCustom(); $("#ai-model", panel).value = typed; }
+    st.textContent = `โหลดแล้ว ${n} โมเดล (ซ่อนโมเดลที่ไม่ใช่แชท) · ต้องรองรับ tool calling และควรดูรูปได้`;
+  } catch (e) { if (seq === loadSeq) st.textContent = "โหลดรายชื่อไม่สำเร็จ: " + e.message; }
+}
+$("#ai-provider", panel).addEventListener("change", e => fillProvider(e.target.value));
+$("#ai-load", panel).addEventListener("click", () => loadModels());
+$("#ai-key", panel).addEventListener("change", () => loadModels(true));
+$("#ai-base", panel).addEventListener("change", () => loadModels(true));
 $("#ai-save", panel).addEventListener("click", () => {
   const { provider, per } = readSettings();
   store.set("provider", provider); store.set("p." + provider, per);

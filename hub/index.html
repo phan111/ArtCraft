@@ -116,7 +116,9 @@
   #ai-settings a { color: #9d8cff; font-size: 12px; }
   #ai input, #ai select, #ai textarea { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; min-width: 0; }
   #ai .row { display: flex; gap: 6px; }
-  #ai .row input { flex: 1; }
+  #ai .row input, #ai .row select { flex: 1; }
+  #ai select { min-height: 40px; }
+  #ai-load { min-width: 44px; font-size: 16px; }
   #ai-settings button, #ai .chip { border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
   #ai-settings button.primary { background: var(--accent); border-color: var(--accent); color: #fff; flex: 1; }
   #ai .hint { margin: 0; font-size: 12px; color: #80808e; }
