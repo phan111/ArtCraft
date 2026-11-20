@@ -101,8 +101,12 @@ async function modelTurn(cfg, conv, system, tools, signal) {
     let input = {}; try { input = c.function?.arguments ? JSON.parse(c.function.arguments) : {}; } catch { input = { __bad_json: c.function?.arguments }; }
     return { id: c.id || `call_${Date.now()}_${i}`, name: c.function?.name, input };
   });
-  const keep = { role: "assistant", content: msg.content ?? "" };
-  if (calls.length) keep.tool_calls = calls.map(c => ({ id: c.id, type: "function", function: { name: c.name, arguments: JSON.stringify(c.input) } }));
+  // Echo the assistant message back exactly as received: providers attach data to it that the next
+  // request must carry (Gemini 3 puts a thought signature in tool_calls[].extra_content).
+  const keep = { ...msg, role: "assistant", content: msg.content ?? "" };
+  if (calls.length) keep.tool_calls = msg.tool_calls.map((tc, i) => ({ ...tc, id: calls[i].id, type: tc.type || "function" }));
+  else delete keep.tool_calls;
+  for (const k of ["refusal", "reasoning", "reasoning_content", "audio", "annotations"]) if (keep[k] == null) delete keep[k];
   conv.messages.push(keep);
   const text = typeof msg.content === "string" ? msg.content.trim() : "";
   return { text, calls, stop: j.choices?.[0]?.finish_reason, usage: j.usage };
@@ -396,7 +400,7 @@ function toggle(show = panel.hidden) {
   panel.hidden = !show;
   document.body.classList.toggle("ai-open", show);
   $("#ai-btn")?.classList.toggle("active", show);
-  if (show) { setTimeout(avoidCornerBadge, 50); renderEmpty(); updateTarget(); if (!config().key && !config().keyOptional) openSettings(); else input.focus(); }
+  if (show) { avoidCornerBadge(); setTimeout(avoidCornerBadge, 1500); renderEmpty(); updateTarget(); if (!config().key && !config().keyOptional) openSettings(); else input.focus(); }
 }
 
 // settings
@@ -605,6 +609,9 @@ function avoidCornerBadge() {
       if (st.position === "fixed" && !n.closest("#stage, #bar")) { lift = Math.max(lift, innerHeight - n.getBoundingClientRect().top + 8); break; }
     }
   }
+  // Netlify's badge may not be hit-testable (pointer-events, shadow DOM, added late): on Netlify
+  // hosts keep its usual height clear anyway.
+  if (/\.netlify\.app$/.test(location.hostname)) lift = Math.max(lift, 72);
   panel.style.setProperty("--lift", lift ? `${Math.min(lift, 120)}px` : "0px");
 }
 new MutationObserver(() => { if (!panel.hidden) avoidCornerBadge(); }).observe(document.body, { childList: true });
