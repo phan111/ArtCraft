@@ -76,6 +76,19 @@ self.addEventListener("fetch", (event) => {
   event.respondWith((async () => {
     const cache = await caches.open(appCache(app));
     const key = url.origin + url.pathname; // ignore ?v=…, ?webgl and the like
+    // The app's page itself: network first, so changes the host makes to the HTML (Netlify
+    // injects or removes scripts there) show up; the cached copy is for offline use.
+    if (req.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith(".html")) {
+      try {
+        const res = await fetch(req, { cache: "no-cache" });
+        if (res.ok && res.status === 200 && res.type === "basic") cache.put(key, res.clone()).catch(() => {});
+        return res;
+      } catch (e) {
+        const off = await cache.match(key);
+        if (off) return off;
+        throw e;
+      }
+    }
     const hit = await cache.match(key);
     if (hit) return hit;
     const res = await fetch(req);
