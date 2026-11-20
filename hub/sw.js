@@ -12,7 +12,7 @@ const BUILD = "__BUILD__";
 const VERSIONS = __VERSIONS__;
 const SHELL = `crafthub-shell-${BUILD}`;
 const SHELL_FILES = [
-  "./", "./ai.js", "./ai/lightcraft-commands.json", "./manifest.webmanifest", "./versions.json", "./offline.json",
+  "./", "./ai.js", "./declutter.js", "./ai/lightcraft-commands.json", "./manifest.webmanifest", "./versions.json", "./offline.json",
   "./icons/hub-192.png", "./icons/hub-512.png", "./icons/hub-maskable-512.png",
   "./icons/favicon-32.png", "./icons/apple-touch-icon.png",
   "./icons/photocraft.png", "./icons/filmcraft.png", "./icons/lightcraft.png", "./icons/effectcraft.png",

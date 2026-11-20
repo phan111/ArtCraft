@@ -24,6 +24,11 @@ When a new app version comes out (you bump `apps.txt`), the old files are droppe
 > On a phone, landscape works best, or use a tablet with a mouse/keyboard: these apps have desktop-style UIs.
 > Your work (projects, photo library) lives in the device's browser storage. Uninstalling the app or clearing Chrome's data deletes it, so Export/Back Up regularly.
 
+### ปุ่ม Discord ในแอป
+FilmCraft และ EffectCraft วาดหน้าจอบน `<canvas>` จึงซ่อนด้วย CSS ไม่ได้ ฮับ (`hub/declutter.js`) ถามตำแหน่งปุ่ม `header.discord`
+จากแอปผ่าน `ui.elements` แล้ววางแผ่นสีเดียวกับแถบหัวทับไว้ (กดไม่ได้) ปิด/เปิดได้ที่เมนู ⋯ → “ซ่อนปุ่ม Discord ในแอป”
+LightCraft/PhotoCraft ไม่มี API บอกตำแหน่ง จึงยังซ่อนไม่ได้
+
 ## ผู้ช่วย AI (ให้ AI ช่วยตัดต่อ)
 
 กดปุ่ม **🤖 AI** มุมขวาบน (หรือ `Alt+A`) แล้วพิมพ์สั่งงาน เช่น “เปิดโปรเจกต์ตัวอย่าง แล้วใส่ไตเติล Hello ช่วง 3 วิแรก”

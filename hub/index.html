@@ -400,6 +400,10 @@ async function renderMore() {
   parts.push(`<button data-go="">🏠 หน้าหลัก</button>`);
   for (const a of APPS) parts.push(`<button data-go="${a.id}"><img src="icons/${a.id}.png" alt="" width="20" height="20" style="border-radius:5px"> ${a.name}${open.has(a.id) ? " ·  เปิดอยู่" : ""}</button>`);
   const sc = current && SCALES[current];
+  if (current === "filmcraft" || current === "effectcraft") {
+    const on = window.CraftDeclutter?.enabled ?? true;
+    parts.push(`<hr><button data-declutter="${on ? 0 : 1}">${on ? "☑" : "☐"} ซ่อนปุ่ม Discord ในแอป</button>`);
+  }
   if (sc) {
     const api = frameApi(current);
     let cur = null;
@@ -425,10 +429,12 @@ moreMenu.addEventListener("click", async e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.proxy) { closeMore(); $(b.dataset.proxy).click(); return; }
   if (b.dataset.go !== undefined) { closeMore(); b.dataset.go ? openApp(b.dataset.go) : show(null); return; }
+  if (b.dataset.declutter !== undefined) { window.CraftDeclutter?.set(b.dataset.declutter === "1"); renderMore(); return; }
   if (b.dataset.scale !== undefined) {
     const api = frameApi(current); if (!api) return;
     const value = current === "effectcraft" ? Number(b.dataset.scale) : b.dataset.scale;
     try { await api.execute("prefs.set", { key: "appearance.uiScale", value }); } catch (err) { alert("ปรับขนาดไม่สำเร็จ: " + (err?.message || err)); }
+    setTimeout(() => window.CraftDeclutter?.refresh(), 600);
     renderMore();
   }
 });
@@ -574,5 +580,6 @@ if ("caches" in window) {
 }
 </script>
 <script type="module" src="ai.js"></script>
+<script type="module" src="declutter.js"></script>
 </body>
 </html>
