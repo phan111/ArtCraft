@@ -24,6 +24,25 @@ When a new app version comes out (you bump `apps.txt`), the old files are droppe
 > On a phone, landscape works best, or use a tablet with a mouse/keyboard: these apps have desktop-style UIs.
 > Your work (projects, photo library) lives in the device's browser storage. Uninstalling the app or clearing Chrome's data deletes it, so Export/Back Up regularly.
 
+### ใช้ Claude Desktop / Claude Code สั่งงาน (บนคอมพิวเตอร์)
+ฮับเลือกโหมดให้เอง: **มือถือ/แท็บเล็ต → AI ในเบราว์เซอร์ (API key)**, **คอมพิวเตอร์ → Claude Desktop** (สลับเองได้ที่หัวแผง AI)
+
+Claude Desktop / Claude Code ใช้แพ็กเกจ Claude ที่มีอยู่ ไม่ต้องจ่าย API แยก ทำงานผ่านตัวเชื่อม MCP เล็ก ๆ
+(`hub/bridge/craft-hub-mcp.mjs`, Node.js 18+, ไม่มี dependency) ที่รันบนเครื่องคุณ:
+
+```
+Claude ⇄ (MCP stdio) ⇄ craft-hub-mcp.mjs ⇄ (HTTP 127.0.0.1:47821) ⇄ หน้า Craft Hub ในเบราว์เซอร์
+```
+
+ตั้งค่า: ดาวน์โหลดไฟล์จากแผง AI (โหมด Claude Desktop) แล้วเพิ่มใน Claude Desktop config หรือ
+
+```bash
+claude mcp add craft-hub -- node /path/to/craft-hub-mcp.mjs --origin https://<your-hub>.netlify.app
+```
+
+ตัวเชื่อมรับเฉพาะหน้าเว็บจาก `--origin` (และ localhost) และไม่อ่าน/รันอะไรในเครื่อง แค่ส่งคำสั่งแอปไปให้หน้าฮับ
+เครื่องมือที่ Claude ใช้: `hub_status`, `open_app`, `find_commands`, `run_command`, `ui_request`, `screenshot`, `wait`
+
 ### ปุ่ม Discord ในแอป
 FilmCraft และ EffectCraft วาดหน้าจอบน `<canvas>` จึงซ่อนด้วย CSS ไม่ได้ ฮับ (`hub/declutter.js`) ถามตำแหน่งปุ่ม `header.discord`
 จากแอปผ่าน `ui.elements` แล้ววางแผ่นสีเดียวกับแถบหัวทับไว้ (กดไม่ได้) ปิด/เปิดได้ที่เมนู ⋯ → “ซ่อนปุ่ม Discord ในแอป”

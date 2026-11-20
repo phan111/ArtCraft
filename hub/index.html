@@ -173,6 +173,22 @@
   #ai.busy #ai-send { background: #b8434b; }
   #ai.busy header strong::after { content: " · กำลังทำงาน…"; font-weight: 400; color: var(--muted); font-size: 12px; }
   #ai-btn.active { background: var(--panel-2); color: var(--text); }
+  #ai-btn.linked:not(.busy)::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: #5fd38d; vertical-align: middle; }
+  #ai-mode { display: flex; gap: 4px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  #ai-mode button { flex: 1; border: 1px solid var(--line); background: none; color: var(--muted); border-radius: 8px; padding: 6px 8px; font-size: 13px; }
+  #ai-mode button.on { background: #3b2f6b; border-color: var(--accent); color: var(--text); }
+  #ai-desktop { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #ai-desktop[hidden], #ai-log[hidden], #ai-form[hidden] { display: none; }
+  #ai .dstatus { margin: 10px; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); font-size: 13px; line-height: 1.5; }
+  #ai .dstatus.ok { background: #16351f; color: #bff0cf; }
+  #ai .dstatus small { color: var(--muted); }
+  #ai-dsetup { margin: 0 10px 8px; font-size: 13px; color: var(--muted); }
+  #ai-dsetup summary { cursor: pointer; color: var(--text); padding: 4px 0; }
+  #ai-dsetup ol { padding-left: 20px; margin: 6px 0; display: grid; gap: 8px; }
+  #ai-dsetup a { color: #9d8cff; }
+  #ai-dsetup pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 11px ui-monospace, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin: 6px 0 4px; color: var(--text); }
+  #ai-dsetup .port { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  #ai-dlog { flex: 1; overflow-y: auto; padding: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
   #ai-pin.on { background: #3b2f6b !important; color: var(--text) !important; }
   @media (max-width: 900px) {
     #ai { width: 100%; }

@@ -234,6 +234,11 @@ async function runTool(name, input, ui) {
   const app = HUB.current;
   const needApp = () => { if (!app) throw new Error("ยังไม่ได้เปิดแอปไหน ใช้ open_app ก่อน"); return app; };
   switch (name) {
+    case "hub_status": {
+      const loaded = APP_ENUM.filter(a => HUB.frameOf(a));
+      return { text: JSON.stringify({ current: app || null, shown: app ? CAPS[app].name : "home page", loaded,
+        automation: Object.fromEntries(APP_ENUM.map(a => [a, CAPS[a].api])) }) };
+    }
     case "open_app": {
       if (!CAPS[input.app]) throw new Error(`ไม่รู้จักแอป ${input.app}`);
       HUB.openApp(input.app);
@@ -340,6 +345,29 @@ const panel = el(`
     <button data-act="clear" title="เริ่มแชทใหม่">🗑</button>
     <button data-act="close" title="ปิด">✕</button>
   </header>
+  <nav id="ai-mode" role="tablist">
+    <button data-mode="api" role="tab">💬 AI ในเบราว์เซอร์</button>
+    <button data-mode="desktop" role="tab">🖥 Claude Desktop</button>
+  </nav>
+  <section id="ai-desktop" hidden>
+    <div id="ai-dstatus" class="dstatus"></div>
+    <details id="ai-dsetup">
+      <summary>วิธีตั้งค่า (ครั้งเดียว)</summary>
+      <ol>
+        <li>ติดตั้ง <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> (เวอร์ชัน 18 ขึ้นไป)</li>
+        <li>ดาวน์โหลดตัวเชื่อม <a id="ai-dl" href="bridge/craft-hub-mcp.mjs" download="craft-hub-mcp.mjs">craft-hub-mcp.mjs</a> เก็บไว้ในโฟลเดอร์ที่จำได้</li>
+        <li><b>Claude Desktop:</b> Settings → Developer → Edit Config แล้วใส่ใน <code>claude_desktop_config.json</code> (แก้ path ให้ตรงไฟล์ที่ดาวน์โหลด):
+          <pre id="ai-dcfg"></pre><button type="button" class="chip" data-copy="ai-dcfg">คัดลอก</button>
+          แล้วปิด-เปิด Claude Desktop ใหม่ · บน Windows ใน JSON ต้องใช้ <code>\\</code> เช่น <code>C:\\Users\\me\\craft-hub-mcp.mjs</code></li>
+        <li><b>หรือ Claude Code:</b> รันในเทอร์มินัล
+          <pre id="ai-dcli"></pre><button type="button" class="chip" data-copy="ai-dcli">คัดลอก</button></li>
+        <li>เปิดหน้านี้ค้างไว้ (Chrome/Edge) ถ้าเบราว์เซอร์ถามสิทธิ์เข้าถึงอุปกรณ์ในเครือข่าย/เครื่องนี้ ให้กดอนุญาต</li>
+        <li>สั่งงานใน Claude เช่น “ใช้ craft-hub เปิด FilmCraft แล้วใส่ไตเติล Hello 3 วินาทีแรก”</li>
+      </ol>
+      <label class="port">พอร์ต <input id="ai-dport" inputmode="numeric" size="6"></label>
+    </details>
+    <div id="ai-dlog"></div>
+  </section>
   <section id="ai-settings" hidden>
     <label>ผู้ให้บริการ<select id="ai-provider">${Object.entries(PROVIDERS).map(([k, p]) => `<option value="${k}">${p.label}</option>`).join("")}</select></label>
     <label id="ai-base-row">URL ของ API<input id="ai-base" placeholder="http://localhost:11434/v1" autocomplete="off"></label>
@@ -401,7 +429,11 @@ function toggle(show = panel.hidden) {
   panel.hidden = !show;
   document.body.classList.toggle("ai-open", show);
   $("#ai-btn")?.classList.toggle("active", show);
-  if (show) { avoidCornerBadge(); setTimeout(avoidCornerBadge, 1500); renderEmpty(); updateTarget(); if (!config().key && !config().keyOptional) openSettings(); else input.focus(); }
+  if (show) {
+    avoidCornerBadge(); setTimeout(avoidCornerBadge, 1500); renderEmpty(); updateTarget(); applyMode();
+    if (effectiveMode() === "desktop") { store.set("bridgeUsed", true); startBridge(); }
+    else if (!config().key && !config().keyOptional) openSettings(); else input.focus();
+  }
 }
 
 // settings
@@ -504,7 +536,7 @@ panel.addEventListener("click", e => {
   if (chip) { input.value = chip.textContent; send(); return; }
   if (!b) return;
   if (b.dataset.act === "close") toggle(false);
-  if (b.dataset.act === "clear") resetChat();
+  if (b.dataset.act === "clear") { if (effectiveMode() === "desktop") dlog.innerHTML = ""; else resetChat(); }
   if (b.dataset.act === "pin") setDocked(!document.body.classList.contains("ai-docked"));
   if (b.dataset.act === "settings") { const s = $("#ai-settings", panel); if (s.hidden) openSettings(); else s.hidden = true; }
 });
@@ -628,6 +660,124 @@ async function send() {
     }
   } finally { setBusy(false); abort = null; input.focus(); }
 }
+
+
+// ---------------------------------------------------------------- mode B: Claude Desktop / Code over MCP
+// On a computer, Claude Desktop or Claude Code drives the hub through the local bridge
+// (bridge/craft-hub-mcp.mjs). On phones and tablets the in-browser AI (mode A) is used.
+function isMobileDevice() {
+  const ua = navigator.userAgent || "";
+  return !!navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle/i.test(ua) ||
+    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); // iPadOS reports itself as a Mac
+}
+const effectiveMode = () => { const m = store.get("mode", "auto"); return m === "auto" ? (isMobileDevice() ? "api" : "desktop") : m; };
+
+function applyMode() {
+  const m = effectiveMode(), auto = store.get("mode", "auto") === "auto";
+  for (const b of panel.querySelectorAll("#ai-mode button")) {
+    const on = b.dataset.mode === m;
+    b.classList.toggle("on", on);
+    b.title = on && auto ? `เลือกอัตโนมัติ: ตรวจพบ${isMobileDevice() ? "มือถือ/แท็บเล็ต" : "คอมพิวเตอร์"}` : "";
+  }
+  const desk = m === "desktop";
+  $("#ai-desktop", panel).hidden = !desk;
+  log.hidden = desk; $("#ai-form", panel).hidden = desk;
+  if (desk) { $("#ai-settings", panel).hidden = true; renderDesktop(); }
+  panel.querySelector('[data-act="settings"]').hidden = desk;
+  panel.querySelector('[data-act="clear"]').title = desk ? "ล้างประวัติคำสั่ง" : "เริ่มแชทใหม่";
+}
+panel.querySelector("#ai-mode").addEventListener("click", e => {
+  const b = e.target.closest("[data-mode]"); if (!b) return;
+  const auto = isMobileDevice() ? "api" : "desktop";
+  store.set("mode", b.dataset.mode === auto ? "auto" : b.dataset.mode);
+  applyMode();
+  if (b.dataset.mode === "desktop") { store.set("bridgeUsed", true); startBridge(); }
+  else if (!config().key && !config().keyOptional) openSettings();
+});
+
+const bridgePort = () => Number(store.get("bridgePort", 47821)) || 47821;
+let bridge = { running: false, connected: false, lastError: "", calls: 0 };
+
+function renderDesktop() {
+  const port = bridgePort(), origin = location.origin;
+  const st = $("#ai-dstatus", panel);
+  st.className = "dstatus " + (bridge.connected ? "ok" : "off");
+  st.innerHTML = bridge.connected
+    ? `🟢 เชื่อมกับ Claude แล้ว · สั่งงานในแอป Claude ได้เลย${bridge.calls ? ` · ทำไปแล้ว ${bridge.calls} คำสั่ง` : ""}`
+    : `⚪ ยังไม่เชื่อมต่อตัวเชื่อม (127.0.0.1:${port})${bridge.lastError ? `<br><small>${esc(bridge.lastError)}</small>` : ""}`;
+  const setup = $("#ai-dsetup", panel);
+  if (!setup.dataset.touched) setup.open = !bridge.connected;
+  const cfg = { mcpServers: { "craft-hub": { command: "node", args: ["/path/to/craft-hub-mcp.mjs", "--origin", origin, ...(port !== 47821 ? ["--port", String(port)] : [])] } } };
+  $("#ai-dcfg", panel).textContent = JSON.stringify(cfg, null, 2);
+  $("#ai-dcli", panel).textContent = `claude mcp add craft-hub -- node /path/to/craft-hub-mcp.mjs --origin ${origin}${port !== 47821 ? ` --port ${port}` : ""}`;
+  $("#ai-dport", panel).value = port;
+  $("#ai-btn")?.classList.toggle("linked", bridge.connected);
+}
+$("#ai-dsetup", panel).addEventListener("toggle", e => { e.target.dataset.touched = "1"; });
+$("#ai-dport", panel).addEventListener("change", e => { store.set("bridgePort", Number(e.target.value) || 47821); bridge.lastError = ""; renderDesktop(); });
+panel.addEventListener("click", e => {
+  const c = e.target.closest("[data-copy]"); if (!c) return;
+  e.stopPropagation();
+  navigator.clipboard?.writeText($("#" + c.dataset.copy, panel).textContent).then(() => { c.textContent = "คัดลอกแล้ว ✓"; setTimeout(() => (c.textContent = "คัดลอก"), 1500); }).catch(() => {});
+});
+
+const dlog = $("#ai-dlog", panel);
+const dui = {
+  tool(name, inp) {
+    $(".empty", dlog)?.remove();
+    const d = el(`<details class="tool"><summary><span class="st">⏳</span> <code>${esc(name)}</code> <span class="arg">${esc(summ(name, inp))}</span></summary><pre>${esc(JSON.stringify(inp, null, 1))}</pre></details>`);
+    dlog.appendChild(d); dlog.scrollTop = dlog.scrollHeight;
+    while (dlog.children.length > 120) dlog.firstChild.remove();
+    return { done(text, err) { $(".st", d).textContent = err ? "⚠️" : "✓"; d.appendChild(el(`<pre class="res">${esc(String(text).slice(0, 3000))}</pre>`)); } };
+  },
+  image(b64) { dlog.appendChild(el(`<img class="shot" alt="ภาพหน้าจอ" src="data:image/jpeg;base64,${b64}">`)); dlog.scrollTop = dlog.scrollHeight; },
+};
+
+async function startBridge() {
+  if (bridge.running) return;
+  bridge.running = true;
+  let failures = 0;
+  while (bridge.running && effectiveMode() === "desktop") {
+    const base = `http://127.0.0.1:${bridgePort()}`;
+    try {
+      const r = await fetch(`${base}/poll`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ page: location.href, current: HUB.current }), targetAddressSpace: "loopback" });
+      if (r.status === 403) { const j = await r.json().catch(() => ({})); throw new Error(j.error || "ตัวเชื่อมไม่อนุญาตเว็บนี้ (ตรวจ --origin)"); }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      // The bridge sends headers at once and the body when a job comes (or after 25 s).
+      failures = 0;
+      if (!bridge.connected || bridge.lastError) { bridge.connected = true; bridge.lastError = ""; renderDesktop(); }
+      const { job } = await r.json();
+      if (job) runBridgeJob(base, job);
+    } catch (e) {
+      failures++;
+      const was = bridge.connected;
+      bridge.connected = false;
+      bridge.lastError = /Failed to fetch|NetworkError|Load failed/i.test(e.message) ? "เปิด Claude Desktop / Claude Code ที่ตั้งค่า craft-hub ไว้ แล้วหน้านี้จะเชื่อมเอง" : e.message;
+      if (was || failures === 1) renderDesktop();
+      await new Promise(r => setTimeout(r, Math.min(15000, 2000 * failures)));
+    }
+  }
+  bridge.running = false;
+}
+
+async function runBridgeJob(base, job) {
+  const row = dui.tool(job.name, job.input || {});
+  let out;
+  try {
+    const r = await runTool(job.name, job.input || {}, dui);
+    row.done(r.text); out = { id: job.id, ok: true, text: r.text, image: r.image, mime: "image/jpeg" };
+  } catch (e) {
+    const msg = e?.message || String(e);
+    row.done(msg, true); out = { id: job.id, ok: false, text: msg };
+  }
+  bridge.calls++; renderDesktop();
+  try { await fetch(`${base}/result`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(out), targetAddressSpace: "loopback" }); }
+  catch (e) { row.done("ส่งผลกลับไม่สำเร็จ: " + e.message, true); }
+}
+
+// Reconnect by itself on later visits once the bridge has been used on this computer.
+if (effectiveMode() === "desktop" && store.get("bridgeUsed", false)) startBridge();
 
 // ---------------------------------------------------------------- hub wiring
 const btn = el(`<button id="ai-btn" class="icon-btn" title="ผู้ช่วย AI (Alt+A)">🤖 <span class="label">AI</span></button>`);
